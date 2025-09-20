@@ -25,6 +25,7 @@ Intinya: dari data teks mentah → jadi search engine mini yang interaktif. 🔥
 ---
 
 ## 📂 Struktur Project  
+```
 QueryLens/
 ├── Dataset/
 │ └── bbc_news.csv # Dataset (hasil konversi dari .txt ke .csv)
@@ -36,7 +37,7 @@ QueryLens/
 │
 ├── requirements.txt # Dependency Python
 └── README.md # Dokumentasi project
-
+```
 ---
 
 ## 📊 Dataset  
