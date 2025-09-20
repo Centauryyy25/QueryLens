@@ -56,7 +56,7 @@ QueryLens/
    cd QueryLens
 
 ---
-
+```
 👤 Author
 ===
 Created by Ilham Ahsan Saputra
@@ -64,3 +64,4 @@ Created by Ilham Ahsan Saputra
 💻 Junior Network Engineer | AI & ML Enthusiast
 
 📌 “Turning raw data into meaningful insights through Machine Learning.”
+```
