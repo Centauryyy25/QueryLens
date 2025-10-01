@@ -1,40 +1,53 @@
-import streamlit as st
 import re
+
+import streamlit as st
+
 from search_engine import SearchEngine
 
-st.title("🔎 Mini Search Engine - BBC News")
+DATASET_PATH = "Dataset/NewsArticelAll_Enchant.xlsx"
+DEFAULT_TOP_K = 5
+MAX_TOP_K = 20
 
-# Load Search Engine
-search_engine = SearchEngine("Dataset/bbc_news.csv")
+st.set_page_config(page_title="QueryLens - News Search Engine")
+st.title("QueryLens - News Search Engine")
 
-# 🔹 Fitur 1: Filter kategori
-categories = ["All"] + sorted(search_engine.df['category'].unique())
-selected_category = st.selectbox("Pilih kategori:", categories)
 
-# 🔹 Fitur 2: Slider top-k hasil
-top_k = st.slider("Jumlah hasil ditampilkan:", 1, 20, 5)
+@st.cache_resource(show_spinner=False)
+def load_engine() -> SearchEngine:
+    return SearchEngine(DATASET_PATH)
 
-# Input query
+
+search_engine = load_engine()
+available_categories = ["All"] + search_engine.get_categories()
+
+selected_category = st.selectbox("Pilih kategori:", available_categories)
+top_k = st.slider("Jumlah hasil ditampilkan:", min_value=1, max_value=MAX_TOP_K, value=DEFAULT_TOP_K)
 query = st.text_input("Masukkan kata kunci:")
 
 if st.button("Cari") and query:
     results = search_engine.search(query, top_k=top_k, category=selected_category)
-
     st.subheader("Hasil Pencarian:")
 
-    # 🔹 Evaluasi sederhana: precision@k (berapa banyak hasil dari kategori yg sesuai query)
-    relevant = sum(1 for r in results if selected_category in ["All", r['category']])
-    precision_at_k = relevant / len(results) if results else 0
+    if not results:
+        st.info("Tidak ada hasil yang cocok untuk pencarian ini.")
+    else:
+        relevant = sum(1 for item in results if selected_category in ("All", item["category"]))
+        precision_at_k = relevant / len(results)
 
-    for r in results:
-        # 🔹 Fitur 3: Highlight keyword
-        pattern = re.compile(f"({query})", re.IGNORECASE)
-        highlighted_text = pattern.sub(r"<mark>\1</mark>", r['text'])
+        for item in results:
+            snippet = item["text"] or ""
+            if snippet:
+                pattern = re.compile(re.escape(query), re.IGNORECASE)
+                snippet = pattern.sub(lambda match: f"<mark>{match.group(0)}</mark>", snippet)
+            st.markdown(f"### {item['title']} ({item['category']})")
+            if item.get("published_at"):
+                st.caption(item["published_at"])
+            st.markdown(snippet if snippet else "_Ringkasan tidak tersedia._", unsafe_allow_html=True)
+            if item.get("url"):
+                st.markdown(f"[Baca selengkapnya]({item['url']})")
+            st.caption(f"Relevansi skor: {item['score']}")
+            st.write("---")
 
-        st.markdown(f"### {r['title']} ({r['category']})")
-        st.markdown(highlighted_text, unsafe_allow_html=True)
-        st.caption(f"Relevansi skor: {r['score']}")
-        st.write("---")
-
-    # 🔹 Fitur 4: Tampilkan evaluasi sederhana
-    st.metric(label=f"Precision@{top_k}", value=f"{precision_at_k:.2f}")
+        st.metric(label=f"Precision@{len(results)}", value=f"{precision_at_k:.2f}")
+else:
+    st.caption("Masukkan kata kunci kemudian tekan tombol Cari untuk memulai pencarian.")
