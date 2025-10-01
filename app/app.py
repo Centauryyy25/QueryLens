@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import html
 import re
 from typing import Iterable, Mapping
 
+import requests
 import streamlit as st
 
 from search_engine import SearchEngine
@@ -13,14 +15,72 @@ from search_engine import SearchEngine
 DATASET_PATH = "Dataset/NewsArticelAll_Enchant.xlsx"
 DEFAULT_TOP_K = 5
 MAX_TOP_K = 20
-IMAGE_PLACEHOLDER = "https://via.placeholder.com/320x200?text=QueryLens"
+
+PLACEHOLDER_SVG = """
+<svg xmlns='http://www.w3.org/2000/svg' width='320' height='200'>
+  <defs>
+    <linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'>
+      <stop offset='0%' stop-color='#312e81' stop-opacity='0.85'/>
+      <stop offset='100%' stop-color='#0f172a' stop-opacity='0.9'/>
+    </linearGradient>
+  </defs>
+  <rect width='320' height='200' fill='url(#g)' rx='24' ry='24'/>
+  <text x='50%' y='52%' dominant-baseline='middle' text-anchor='middle'
+        font-family='Segoe UI, Arial' font-size='28' fill='white' opacity='0.85'>QueryLens</text>
+</svg>
+""".strip()
+IMAGE_PLACEHOLDER_DATA_URI = "data:image/svg+xml;base64," + base64.b64encode(PLACEHOLDER_SVG.encode("utf-8")).decode(
+    "utf-8"
+)
 
 st.set_page_config(page_title="QueryLens - News Search Engine")
 st.title("QueryLens - News Search Engine")
 
 
+@st.cache_data(show_spinner=False)
+def fetch_image_data(url: str) -> str:
+    """Mengunduh gambar eksternal dan mengembalikannya sebagai data URI."""
+    if not url:
+        return ""
+    try:
+        response = requests.get(
+            url,
+            timeout=6,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0 Safari/537.36"
+                )
+            },
+        )
+    except requests.RequestException:
+        return ""
+
+    if response.status_code != 200:
+        return ""
+
+    content_type = response.headers.get("Content-Type", "").split(";")[0]
+    if not content_type.startswith("image/"):
+        return ""
+
+    if len(response.content) > 4_000_000:
+        return ""
+
+    encoded = base64.b64encode(response.content).decode("utf-8")
+    mime = content_type or "image/jpeg"
+    return f"data:{mime};base64,{encoded}"
+
+
+def resolve_image_src(raw_url: str) -> str:
+    """Menentukan sumber gambar aman yang siap dipakai pada kartu."""
+    cached = fetch_image_data(raw_url)
+    return cached or IMAGE_PLACEHOLDER_DATA_URI
+
+
 def inject_global_css() -> None:
     """Menambahkan gaya glassmorphism untuk tampilan kartu hasil."""
+    # CSS untuk menyembunyikan navbar (hamburger menu) dan footer
     hide_streamlit_style = """
         <style>
         #MainMenu {visibility: hidden;} /* Navbar pojok kanan atas */
@@ -28,6 +88,7 @@ def inject_global_css() -> None:
         header {visibility: hidden;}   /* Header Streamlit default */
         </style>
     """
+
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
     st.markdown(
         """
@@ -159,7 +220,6 @@ def render_result(items: Iterable[Mapping[str, str]], query: str) -> None:
             if url
             else ""
         )
-        image_url = item.get("image_url") or IMAGE_PLACEHOLDER
         snippet_raw = item.get("text") or ""
         snippet_html = "<em>Ringkasan tidak tersedia.</em>"
         if snippet_raw:
@@ -172,10 +232,12 @@ def render_result(items: Iterable[Mapping[str, str]], query: str) -> None:
             meta_segments.append(f"Terbit: {html.escape(published)}")
         meta_html = "".join(f"<span>{segment}</span>" for segment in meta_segments)
 
+        image_src = resolve_image_src(item.get("image_url") or "")
+
         card_html = f"""
         <div class="result-card">
             <div class="result-card__media">
-                <img src="{html.escape(image_url)}" alt="Thumbnail artikel" loading="lazy" onerror="this.src='{IMAGE_PLACEHOLDER}'" />
+                <img src="{image_src}" alt="Thumbnail artikel" loading="lazy" />
             </div>
             <div class="result-card__body">
                 <div class="result-card__badge">{category}</div>
