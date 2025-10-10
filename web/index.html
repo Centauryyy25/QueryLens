@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QueryLens - News Search Engine</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>QueryLens</h1>
+      <p class="tag">Mini search engine untuk artikel berita</p>
+    </header>
+
+    <main class="container">
+      <section class="panel">
+        <div class="field">
+          <label for="query">Kata kunci</label>
+          <input id="query" name="query" type="text" placeholder="mis. artificial intelligence" />
+        </div>
+        <div class="actions">
+          <button id="searchBtn" class="btn">Cari</button>
+        </div>
+      </section>
+
+      <section id="results" class="results"></section>
+    </main>
+
+    <footer class="site-footer">
+    </footer>
+
+    <script src="/app.js" defer></script>
+  </body>
+  </html>

@@ -1,24 +1,48 @@
-"""Logika mesin pencari untuk QueryLens."""
+"""Logika mesin pencari untuk QueryLens.
+
+Kelas `SearchEngine` memuat dataset berita (CSV/XLSX), melakukan pembersihan
+teks, kemudian membangun TF‑IDF matrix untuk pencarian berbasis cosine similarity.
+"""
 
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional
+from dataclasses import dataclass
+from typing import List, Optional, Sequence
 
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from preprocessing import clean_text
+from .preprocessing import clean_text
 
-SearchResult = Dict[str, str]
+
+@dataclass
+class SearchResult:
+    """Representasi hasil pencarian siap kirim ke klien."""
+
+    title: str
+    category: str
+    text: str
+    score: float
+    url: str
+    published_at: str
+    image_url: str
 
 
 class SearchEngine:
-    """Mesin pencari berbasis TF-IDF dan cosine similarity untuk korpus berita."""
+    """Mesin pencari berbasis TF‑IDF dan cosine similarity untuk korpus berita."""
+
+    TEXT_COLUMNS: Sequence[str] = ("full_content", "content", "description", "title")
 
     def __init__(self, data_path: str) -> None:
-        """Mempersiapkan korpus dan membangun matriks vektor dokumen."""
+        """Muat data dan bangun representasi vektor dokumen.
+
+        Parameters
+        ----------
+        data_path: str
+            Path ke berkas dataset (.csv / .xlsx /.xls)
+        """
         self.data_path = data_path
         self.df = self._load_dataset(data_path)
         self._prepare_dataframe()
@@ -26,7 +50,7 @@ class SearchEngine:
         self.doc_vectors = self.vectorizer.fit_transform(self.df["clean_text"])
 
     def _load_dataset(self, data_path: str) -> pd.DataFrame:
-        """Membaca dataset dari CSV atau Excel sesuai ekstensi berkas."""
+        """Baca dataset dari CSV/XLSX sesuai ekstensi berkas."""
         ext = os.path.splitext(data_path)[1].lower()
         if ext == ".csv":
             return pd.read_csv(data_path)
@@ -40,8 +64,8 @@ class SearchEngine:
         raise ValueError(f"Unsupported dataset format: {ext}")
 
     def _prepare_dataframe(self) -> None:
-        """Membersihkan kolom teks dan membuat representasi yang konsisten."""
-        text_columns = [col for col in ("full_content", "content", "description", "title") if col in self.df.columns]
+        """Bersihkan kolom teks dan siapkan kolom turunan konsisten."""
+        text_columns = [col for col in self.TEXT_COLUMNS if col in self.df.columns]
         if not text_columns:
             raise ValueError(
                 "Dataset must contain at least one of the following columns: full_content, content, description, title."
@@ -93,12 +117,22 @@ class SearchEngine:
         self.df = self.df[self.df["clean_text"] != ""].reset_index(drop=True)
 
     def get_categories(self) -> List[str]:
-        """Mengembalikan daftar kategori unik yang sudah diurutkan alfabetis."""
+        """Kembalikan daftar kategori unik (sorted)."""
         categories = sorted({value for value in self.df["category"] if value})
         return categories
 
     def search(self, query: str, top_k: int = 5, category: Optional[str] = None) -> List[SearchResult]:
-        """Mengambil dokumen paling relevan terhadap kueri pengguna."""
+        """Ambil dokumen paling relevan untuk kueri.
+
+        Parameters
+        ----------
+        query : str
+            Kueri pengguna (akan dibersihkan sebelum vektorisasi).
+        top_k : int
+            Jumlah maksimum hasil yang diambil.
+        category : Optional[str]
+            Jika diberikan dan bukan "All", hasil akan difilter ke kategori tsb.
+        """
         if not query:
             return []
 
@@ -133,14 +167,14 @@ class SearchEngine:
             idx = doc_indices[position]
             row = self.df.loc[idx]
             results.append(
-                {
-                    "title": row["title"],
-                    "category": row["category"],
-                    "text": row["snippet"],
-                    "score": round(score, 3),
-                    "url": row["url"],
-                    "published_at": row["published_at_display"],
-                    "image_url": row["image_url"],
-                }
+                SearchResult(
+                    title=row["title"],
+                    category=row["category"],
+                    text=row["snippet"],
+                    score=round(score, 3),
+                    url=row["url"],
+                    published_at=row["published_at_display"],
+                    image_url=row["image_url"],
+                )
             )
         return results
