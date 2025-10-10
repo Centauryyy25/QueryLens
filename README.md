@@ -52,7 +52,7 @@ QueryLens/
 ## 💻 Cara Jalanin Lokal  
 1. Clone repo ini  
    ```bash
-   git clone https://github.com/yourusername/QueryLens.git
+   git clone https://github.com/Centauryyy25/QueryLens.git
    cd QueryLens
 
 ---
